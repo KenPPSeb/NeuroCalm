@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serenity · Wellness App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --blue: #6eb5d4;
+    --blue-light: #c8e8f5;
+    --blue-pale: #eaf6fc;
+    --mint: #7ecfc0;
+    --mint-light: #c0ede7;
+    --mint-pale: #e8f8f5;
+    --purple: #a98bd6;
+    --purple-light: #ddd0f5;
+    --purple-pale: #f2eeff;
+    --bg: #f4f8fb;
+    --surface: #ffffff;
+    --text: #2c3e50;
+    --text-muted: #7f8fa4;
+    --border: #e2edf5;
+    --radius: 20px;
+    --shadow: 0 4px 24px rgba(110,181,212,0.13);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 80px;
+  }
+
+  /* ── Header ── */
+  .app-header {
+    width: 100%;
+    max-width: 480px;
+    padding: 28px 24px 12px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .app-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.9rem;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .app-header span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 300;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  /* ── Pages ── */
+  .page { display: none; width: 100%; max-width: 480px; padding: 0 20px; }
+  .page.active { display: block; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  /* ── Breathing Circle ── */
+  .breath-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0 8px;
+    gap: 20px;
+  }
+  .breath-scene {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .breath-ring {
+    position: absolute;
+    border-radius: 50%;
+    transition: none;
+  }
+  .ring-outer {
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, var(--blue-pale) 0%, var(--blue-light) 100%);
+    opacity: 0.4;
+  }
+  .ring-middle {
+    width: 130px; height: 130px;
+    background: radial-gradient(circle, var(--blue-light) 0%, var(--blue) 100%);
+    opacity: 0.55;
+  }
+  .ring-inner {
+    width: 80px; height: 80px;
+    background: radial-gradient(circle, #fff 0%, var(--blue) 100%);
+  }
+  .breath-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  @keyframes inhale {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.35); }
+  }
+  @keyframes exhale {
+    0% { transform: scale(1.35); }
+    100% { transform: scale(1); }
+  }
+  .breathing .ring-outer { animation: inhale 4s ease-in-out infinite alternate; }
+  .breathing .ring-middle { animation: inhale 4s ease-in-out 0.3s infinite alternate; }
+  .breathing .ring-inner { animation: inhale 4s ease-in-out 0.6s infinite alternate; }
+  .exhaling .ring-outer { animation: exhale 4s ease-in-out infinite alternate; }
+  .exhaling .ring-middle { animation: exhale 4s ease-in-out 0.3s infinite alternate; }
+  .exhaling .ring-inner { animation: exhale 4s ease-in-out 0.6s infinite alternate; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 28px;
+    border: none; border-radius: 50px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--blue) 0%, var(--mint) 100%);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(110,181,212,0.35);
+  }
+  .btn-primary:hover { box-shadow: 0 6px 24px rgba(110,181,212,0.5); }
+  .btn-secondary {
+    background: var(--blue-pale);
+    color: var(--blue);
+    border: 1px solid var(--blue-light);
+  }
+  .btn-danger {
+    background: #fdecea;
+    color: #c0392b;
+    border: 1px solid #f5c0bb;
+  }
+
+  /* ── Vibe log ── */
+  .vibe-log {
+    max-height: 130px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .vibe-entry {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--mint-pale);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    animation: fadeIn 0.3s ease;
+  }
+  .vibe-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mint);
+    flex-shrink: 0;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .empty-state { color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 12px 0; }
+
+  /* ── Stats ── */
+  .stats-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-box {
+    background: var(--blue-pale);
+    border-radius: 16px;
+    padding: 18px 16px;
+    text-align: center;
+  }
+  .stat-box.purple { background: var(--purple-pale); }
+  .stat-number {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.4rem;
+    color: var(--blue);
+    line-height: 1;
+  }
+  .stat-box.purple .stat-number { color: var(--purple); }
+  .stat-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* ── Bar Chart ── */
+  .chart-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; }
+  .chart {
+    display: flex; align-items: flex-end; gap: 8px;
+    height: 100px;
+  }
+  .bar-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .bar-track {
+    width: 100%; height: 80px;
+    background: var(--border);
+    border-radius: 6px;
+    display: flex; align-items: flex-end;
+    overflow: hidden;
+  }
+  .bar-fill {
+    width: 100%;
+    border-radius: 6px;
+    background: linear-gradient(180deg, var(--mint) 0%, var(--blue) 100%);
+    transition: height 0.6s cubic-bezier(.4,0,.2,1);
+    min-height: 4px;
+  }
+  .bar-label { font-size: 0.7rem; color: var(--text-muted); }
+  .bar-val { font-size: 0.7rem; color: var(--text); font-weight: 500; }
+
+  /* ── Chat ── */
+  .chat-disclaimer {
+    background: var(--purple-pale);
+    border: 1px solid var(--purple-light);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    color: var(--purple);
+    margin-bottom: 14px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .chat-messages {
+    height: 300px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 4px 0 8px;
+    margin-bottom: 12px;
+  }
+  .msg {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    animation: fadeIn 0.25s ease;
+  }
+  .msg-ai {
+    background: linear-gradient(135deg, var(--blue-pale), var(--mint-pale));
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .msg-user {
+    background: linear-gradient(135deg, var(--blue), var(--mint));
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    align-self: flex-end;
+  }
+  .msg-emergency {
+    background: #fdecea;
+    border: 1px solid #f5c0bb;
+    color: #c0392b;
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    align-self: stretch;
+  }
+  .chat-input-row {
+    display: flex; gap: 8px;
+  }
+  .chat-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    outline: none;
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--blue); }
+  .chat-send {
+    width: 44px; height: 44px;
+    border: none; border-radius: 50%; cursor: pointer;
+    background: linear-gradient(135deg, var(--blue), var(--mint));
+    color: #fff;
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 12px rgba(110,181,212,0.35);
+  }
+  .chat-send:active { transform: scale(0.92); }
+
+  /* ── Bottom Nav ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: center;
+    padding: 8px 0 14px;
+    z-index: 100;
+  }
+  .nav-inner { display: flex; gap: 4px; max-width: 480px; width: 100%; padding: 0 16px; }
+  .nav-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer;
+    padding: 8px 4px; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.7rem; color: var(--text-muted);
+    transition: background 0.2s, color 0.2s;
+  }
+  .nav-btn.active { background: var(--blue-pale); color: var(--blue); }
+  .nav-btn .nav-icon { font-size: 1.3rem; line-height: 1; }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--text-muted); margin-bottom: 14px; font-weight: 500;
+  }
+  .controls { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .session-info { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>Serenity</h1>
+  <span>wellness</span>
+</div>
+
+<!-- Page: Calm Now -->
+<div class="page active" id="page-calm">
+  <div class="card">
+    <div class="card-title">Breathing Exercise</div>
+    <div class="breath-wrapper">
+      <div class="breath-scene" id="breathScene">
+        <div class="breath-ring ring-outer"></div>
+        <div class="breath-ring ring-middle"></div>
+        <div class="breath-ring ring-inner"></div>
+        <div class="breath-label" id="breathLabel">Ready</div>
+      </div>
+    </div>
+    <div class="controls" style="margin-top:48px">
+      <button class="btn btn-primary" id="breathBtn" onclick="toggleBreath()">▶️ Start Session</button>
+    </div>
+    <div class="session-info" id="sessionInfo"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Vibration Log</div>
+    <div class="section-label">Simulated haptic feedback</div>
+    <div class="vibe-log" id="vibeLog">
+      <div class="empty-state">Start a session to see log</div>
+    </div>
+  </div>
+</div>
+
+<!-- Page: Stats -->
+<div class="page" id="page-stats">
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-number" id="statVibs">0</div>
+      <div class="stat-desc">Vibrations today</div>
+    </div>
+    <div class="stat-box purple">
+      <div class="stat-number" id="statSess">0</div>
+      <div class="stat-desc">Sessions today</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Weekly Activity</div>
+    <div class="chart-title">Vibrations per day (last 7 days)</div>
+    <div class="chart" id="weekChart"></div>
+  </div>
+
+  <div style="display:flex;justify-content:center;padding-top:4px;">
+    <button class="btn btn-danger" onclick="resetStats()">↺ Reset All Data</button>
+  </div>
+</div>
+
+<!-- Page: AI Doctor -->
+<div class="page" id="page-chat">
+  <div class="card" style="padding-bottom:18px;">
+    <div class="chat-disclaimer">
+      <span>⚕</span>
+      <span><strong>Not medical advice.</strong> This is a supportive chat only. For medical concerns, consult a professional.</span>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chatInput" type="text" placeholder="How are you feeling…" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <div class="nav-inner">
+    <button class="nav-btn active" id="nav-calm" onclick="setPage('calm')">
+      <span class="nav-icon">🌊</span>Calm
+    </button>
+    <button class="nav-btn" id="nav-stats" onclick="setPage('stats')">
+      <span class="nav-icon">📊</span>Stats
+    </button>
+    <button class="nav-btn" id="nav-chat" onclick="setPage('chat')">
+      <span class="nav-icon">💬</span>AI Doctor
+    </button>
+  </div>
+</nav>
+
+<script>
+// ── Utilities ──────────────────────────────────────────────────
+const today = () => new Date().toISOString().slice(0,10);
+const ls = {
+  get: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
+};
+
+function getStats() {
+  return ls.get('srnty_stats') || {};
+}
+function saveStats(s) { ls.set('srnty_stats', s); }
+
+function incrementToday(field, by=1) {
+  const s = getStats();
+  if (!s[today()]) s[today()] = { vibs: 0, sess: 0 };
+  s[today()][field] = (s[today()][field] || 0) + by;
+  saveStats(s);
+}
+
+// ── Navigation ─────────────────────────────────────────────────
+function setPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'stats') renderStats();
+}
+
+// ── Breathing ──────────────────────────────────────────────────
+let breathing = false;
+let breathPhase = 'inhale';
+let breathTimer = null;
+let vibeInterval = null;
+let vibeCount = 0;
+let phaseTime = 0;
+let phaseDuration = 4000;
+const scene = document.getElementById('breathScene');
+const label = document.getElementById('breathLabel');
+const breathBtn = document.getElementById('breathBtn');
+const info = document.getElementById('sessionInfo');
+
+function toggleBreath() {
+  if (!breathing) startBreath();
+  else stopBreath();
+}
+
+function startBreath() {
+  breathing = true;
+  vibeCount = 0;
+  breathBtn.textContent = '⏹ Stop Session';
+  breathBtn.classList.replace('btn-primary','btn-secondary');
+  incrementToday('sess');
+  runPhase('inhale');
+  vibeInterval = setInterval(simulateVibe, 3000);
+}
+
+function stopBreath() {
+  breathing = false;
+  clearTimeout(breathTimer);
+  clearInterval(vibeInterval);
+  breathBtn.textContent = '▶️ Start Session';
+  breathBtn.classList.replace('btn-secondary','btn-primary');
+  scene.classList.remove('breathing','exhaling');
+  label.textContent = 'Ready';
+  info.textContent = `Session ended · ${vibeCount} vibrations logged`;
+}
+
+function runPhase(phase) {
+  breathPhase = phase;
+  scene.classList.remove('breathing','exhaling');
+  if (phase === 'inhale') {
+    scene.classList.add('breathing');
+    label.textContent = 'Inhale…';
+    breathTimer = setTimeout(() => { if(breathing) runPhase('exhale'); }, phaseDuration);
+  } else {
+    scene.classList.add('exhaling');
+    label.textContent = 'Exhale…';
+    breathTimer = setTimeout(() => { if(breathing) runPhase('inhale'); }, phaseDuration);
+  }
+}
+
+function simulateVibe() {
+  if (!breathing) return;
+  vibeCount++;
+  incrementToday('vibs');
+  addVibeEntry();
+  if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+}
+
+function addVibeEntry() {
+  const log = document.getElementById('vibeLog');
+  const empty = log.querySelector('.empty-state');
+  if (empty) empty.remove();
+  const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const entry = document.createElement('div');
+  entry.className = 'vibe-entry';
+  entry.innerHTML = `<div class="vibe-dot"></div><span>Vibration #${vibeCount} · ${now} · ${breathPhase}</span>`;
+  log.prepend(entry);
+  if (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+// ── Stats ──────────────────────────────────────────────────────
+function renderStats() {
+  const s = getStats();
+  const td = s[today()] || { vibs: 0, sess: 0 };
+  document.getElementById('statVibs').textContent = td.vibs || 0;
+  document.getElementById('statSess').textContent = td.sess || 0;
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    const label = d.toLocaleDateString('en', {weekday:'short'}).slice(0,2);
+    const val = (s[key] || {}).vibs || 0;
+    days.push({ label, val });
+  }
+
+  const max = Math.max(...days.map(d => d.val), 1);
+  const chart = document.getElementById('weekChart');
+  chart.innerHTML = '';
+  days.forEach(d => {
+    const pct = Math.round((d.val / max) * 100);
+    const isToday = d === days[6];
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `
+      <div class="bar-val">${d.val}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="height:${pct}%;${isToday ? 'background:linear-gradient(180deg,var(--purple) 0%,var(--blue) 100%)' : ''}"></div>
+      </div>
+      <div class="bar-label">${d.label}</div>`;
+    chart.appendChild(col);
+  });
+}
+
+function resetStats() {
+  if (confirm('Reset all stats? This cannot be undone.')) {
+    ls.set('srnty_stats', {});
+    renderStats();
+  }
+}
+
+// ── Chat ───────────────────────────────────────────────────────
+const EMERGENCY_KEYWORDS = ['suicide', 'kill myself', 'end my life', 'self harm', 'self-harm', 'hurt myself', 'cutting myself', 'overdose', 'want to die'];
+
+const RESPONSES = [
+  { pattern: /\b(anxious|anxiety|panic|nervous|stress)\b/i,
+    reply: "It sounds like you're experiencing some anxiety. That's completely valid. Try the breathing exercise on the Calm tab — even 2 minutes can shift your nervous system into a more relaxed state. 💙" },
+  { pattern: /\b(sad|depress|depressed|hopeless|empty|numb)\b/i,
+    reply: "I hear you — feeling sad or empty can be really hard to carry. Be gentle with yourself. Small moments of care, like rest, nature, or gentle movement, can help. Connecting with someone you trust is also meaningful. 🌿" },
+  { pattern: /\b(sleep|insomnia|tired|exhausted|can't sleep)\b/i,
+    reply: "Sleep struggles can really affect how we feel. A consistent wind-down routine — dimmed lights, no screens for 30 mins, and a breathing exercise — can make a noticeable difference. 🌙" },
+  { pattern: /\b(angry|anger|furious|rage|frustrated)\b/i,
+    reply: "Anger is a natural emotion, often signaling that something feels unfair or threatening. Try a few slow exhales — longer out-breaths activate the parasympathetic nervous system and can help you ground. 🌬" },
+  { pattern: /\b(lonely|alone|isolated|no one cares)\b/i,
+    reply: "Loneliness can feel very heavy. You're not alone in feeling this way, and reaching out — even here — shows strength. Consider one small social act today, like a message to someone you trust. 🤍" },
+  { pattern: /\b(hello|hi|hey|howdy)\b/i,
+    reply: "Hello! I'm here to offer a supportive space. How are you feeling today? 🌸" },
+  { pattern: /\b(good|great|well|happy|better|okay)\b/i,
+    reply: "That's lovely to hear! Keeping up with small daily habits — breathing, movement, rest — helps maintain that wellbeing. 🌻" },
+  { pattern: /\b(headache|pain|hurt|ache)\b/i,
+    reply: "Physical discomfort can be draining. Make sure you're hydrating, and consider gentle rest. If pain persists, please consult a healthcare professional — I can only offer supportive conversation. 💧" },
+  { pattern: /\b(breathing|breathe|breath)\b/i,
+    reply: "Breathing exercises are one of the most evidence-backed tools for calming the nervous system. Try the Calm tab for a guided session! 🌊" },
+];
+
+const FALLBACKS = [
+  "I'm here with you. Sometimes just expressing how you feel is the first step toward feeling better. 💬",
+  "Thank you for sharing that. Take a gentle breath, and know that your feelings are valid. 🌿",
+  "I want to support you. Can you tell me a little more about what you're experiencing?",
+  "It takes courage to talk about how we feel. I'm listening. 💙",
+  "That sounds like it weighs on you. Be kind to yourself today — small moments of care add up. 🌸",
+];
+
+let fallbackIdx = 0;
+
+function initChat() {
+  const msgs = document.getElementById('chatMessages');
+  addAiMsg("Hello 🌸 I'm your supportive wellness companion. I'm not a doctor, but I'm here to listen and offer gentle guidance. How are you feeling today?");
+}
+
+function addAiMsg(text, type='msg-ai') {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addUserMsg(text) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-user';
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addUserMsg(text);
+
+  const lower = text.toLowerCase();
+  const isEmergency = EMERGENCY_KEYWORDS.some(kw => lower.includes(kw));
+
+  setTimeout(() => {
+    if (isEmergency) {
+      const div = document.createElement('div');
+      div.className = 'msg-emergency';
+      div.innerHTML = `<strong>🚨 Your safety matters.</strong><br><br>
+        If you're in crisis or thinking about harming yourself, please reach out immediately:<br><br>
+        📞 <strong>988 Suicide & Crisis Lifeline</strong>: Call or text <strong>988</strong> (US)<br>
+        📞 <strong>Crisis Text Line</strong>: Text HOME to <strong>741741</strong><br>
+        📞 <strong>International Association for Suicide Prevention</strong>: <a href="https://www.iasp.info/resources/Crisis_Centres/" target="_blank" style="color:#c0392b">Find your country's line</a><br><br>
+        You are not alone. 💙`;
+      document.getElementById('chatMessages').appendChild(div);
+      document.getElementById('chatMessages').scrollTop = 999999;
+      return;
+    }
+
+    let reply = null;
+    for (const r of RESPONSES) {
+      if (r.pattern.test(text)) { reply = r.reply; break; }
+    }
+    if (!reply) {
+      reply = FALLBACKS[fallbackIdx % FALLBACKS.length];
+      fallbackIdx++;
+    }
+    addAiMsg(reply);
+  }, 600);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+initChat();
+</script>
+</body>
+</html>
