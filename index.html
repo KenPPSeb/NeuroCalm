@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║                  NeuroCalm — Anxiety Relief Wristband App            ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  HOW TO RUN:                                                         ║
+║  1. Replace the FIREBASE CONFIG section below with your own config.  ║
+║     Firebase Console → Project Settings → Your apps → SDK config     ║
+║  2. In Firebase Console, enable:                                     ║
+║     • Authentication → Email/Password provider                       ║
+║     • Authentication → Google provider                               ║
+║     • Firestore Database (start in test mode for dev)                ║
+║  3. Save this file and open via a local server:                      ║
+║     python3 -m http.server 8080                                      ║
+║     Then visit: http://localhost:8080/neurocalm-app.html             ║
+║  NOTE: Google Sign-In requires a real domain or localhost.           ║
+║        Double-clicking the file directly will NOT work for Google.   ║
+║                                                                      ║
+║  HOW TO TEST FEATURES:                                               ║
+║  • Sign up with email/password or Google                             ║
+║  • Edit your display name in Profile → tap name → edit              ║
+║  • Home: watch anxiety meter auto-change every 3s                    ║
+║  • Calm: tap breathing circle to start 4-4-4 exercise               ║
+║  • All user data syncs to Firestore in real time                     ║
+║                                                                      ║
+║  RESET:                                                              ║
+║  DevTools → Console → localStorage.clear() → reload                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#b8d4f0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NeuroCalm">
+  <title>NeuroCalm</title>
+
+  <!-- ════════════════════════════════════════════════
+       FIREBASE CONFIG — REPLACE ALL VALUES BELOW
+       Get from: Firebase Console → Project Settings
+  ════════════════════════════════════════════════ -->
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey:            "YOUR_API_KEY",
+      authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId:         "YOUR_PROJECT_ID",
+      storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId:             "YOUR_APP_ID"
+    };
+  </script>
+
+  <!-- Firebase SDKs (modular compat build — works in plain HTML) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- Google font: DM Sans (clean, rounded, modern wellness feel) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    /* ══════════════════════════════════════
+       DESIGN TOKENS
+    ══════════════════════════════════════ */
+    :root {
+      --c-bg:        #e8f0fb;
+      --c-bg2:       #ede4f8;
+      --c-bg3:       #e0f0f5;
+
+      --c-blue:      #6ba8e0;
+      --c-purple:    #a882d8;
+      --c-mint:      #64c8b8;
+      --c-rose:      #e090a8;
+      --c-peach:     #f0b890;
+      --c-gold:      #e8c878;
+
+      --c-card:      rgba(255,255,255,0.68);
+      --c-card-b:    rgba(255,255,255,0.92);
+      --c-shadow:    0 8px 32px rgba(100,130,200,0.14), 0 2px 8px rgba(100,130,200,0.08);
+      --c-shadow-lg: 0 20px 60px rgba(80,110,180,0.20);
+
+      --c-text:      #2e3560;
+      --c-text2:     #6870a0;
+      --c-text3:     #a8b0cc;
+
+      --g-calm:   linear-gradient(135deg,#6ba8e0,#a882d8);
+      --g-mint:   linear-gradient(135deg,#64c8b8,#6ba8e0);
+      --g-warm:   linear-gradient(135deg,#f0b890,#e090a8);
+      --g-purple: linear-gradient(135deg,#a882d8,#7060c0);
+
+      --r-sm: 14px;  --r-md: 22px;  --r-lg: 30px;
+      --r-xl: 44px;  --r-full: 999px;
+
+      --nav-h: 78px;
+      --f-body: 'DM Sans', sans-serif;
+      --f-display: 'DM Serif Display', serif;
+      --ease: cubic-bezier(0.4,0,0.2,1);
+      --spring: cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    /* ══════════════════════════════════════
+       RESET
+    ══════════════════════════════════════ */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;overflow:hidden;font-family:var(--f-body);
+      color:var(--c-text);-webkit-font-smoothing:antialiased;
+      -webkit-tap-highlight-color:transparent;user-select:none;}
+
+    /* ══════════════════════════════════════
+       APP SHELL
+    ══════════════════════════════════════ */
+    #app{
+      position:relative;width:100%;height:100%;
+      max-width:430px;margin:0 auto;overflow:hidden;
+    }
+    #app::before{
+      content:'';position:absolute;inset:0;z-index:0;
+      background:
+        radial-gradient(ellipse 65% 55% at 15% 5%,  rgba(107,168,224,.50) 0%,transparent 65%),
+        radial-gradient(ellipse 55% 65% at 85% 85%, rgba(168,130,216,.45) 0%,transparent 65%),
+        radial-gradient(ellipse 75% 40% at 50% 50%, rgba(100,200,184,.22) 0%,transparent 70%),
+        linear-gradient(155deg,#e8f0fb 0%,#ede4f8 55%,#daeef5 100%);
+      animation:meshPulse 14s ease-in-out infinite alternate;
+    }
+    @keyframes meshPulse{
+      0%{filter:hue-rotate(0deg) brightness(1);}
+      50%{filter:hue-rotate(6deg) brightness(1.02);}
+      100%{filter:hue-rotate(-4deg) brightness(.99);}
+    }
+    .blob{position:absolute;border-radius:50%;z-index:0;
+      pointer-events:none;filter:blur(44px);opacity:.45;
+      animation:blobDrift linear infinite;}
+    .blob-1{width:320px;height:320px;background:rgba(107,168,224,.42);
+      top:-90px;left:-90px;animation-duration:20s;}
+    .blob-2{width:260px;height:260px;background:rgba(168,130,216,.38);
+      bottom:90px;right:-70px;animation-duration:25s;animation-delay:-10s;}
+    .blob-3{width:210px;height:210px;background:rgba(100,200,184,.32);
+      top:48%;left:28%;animation-duration:17s;animation-delay:-5s;}
+    @keyframes blobDrift{
+      0%,100%{transform:translate(0,0) scale(1);}
+      33%{transform:translate(14px,-18px) scale(1.06);}
+      66%{transform:translate(-12px,14px) scale(.94);}
+    }
+
+    /* ══════════════════════════════════════
+       LAYERED VIEWS (auth vs app)
+    ══════════════════════════════════════ */
+    #auth-layer,#main-layer{
+      position:absolute;inset:0;z-index:1;
+      transition:opacity .5s var(--ease),transform .5s var(--ease);
+    }
+    #auth-layer.hidden,#main-layer.hidden{
+      opacity:0;pointer-events:none;transform:scale(.97);}
+
+    /* ══════════════════════════════════════
+       AUTH SCREEN
+    ══════════════════════════════════════ */
+    #auth-layer{
+      display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      padding:32px 28px;overflow-y:auto;
+    }
+    .auth-logo{
+      display:flex;flex-direction:column;align-items:center;
+      margin-bottom:36px;
+    }
+    .auth-logo-mark{
+      width:76px;height:76px;border-radius:24px;
+      background:var(--g-calm);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 12px 40px rgba(107,168,224,.5),0 0 0 8px rgba(107,168,224,.12);
+      margin-bottom:16px;
+      animation:logoFloat 4s ease-in-out infinite;
+    }
+    @keyframes logoFloat{
+      0%,100%{transform:translateY(0);}
+      50%{transform:translateY(-6px);}
+    }
+    .auth-logo-mark svg{width:38px;height:38px;stroke:white;fill:none;
+      stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .auth-app-name{
+      font-family:var(--f-display);font-size:32px;
+      color:var(--c-text);letter-spacing:-.5px;
+    }
+    .auth-tagline{font-size:14px;color:var(--c-text2);font-weight:500;
+      margin-top:2px;text-align:center;}
+
+    /* Auth card */
+    .auth-card{
+      width:100%;background:var(--c-card);
+      backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+      border:1.5px solid var(--c-card-b);
+      border-radius:var(--r-lg);
+      box-shadow:var(--c-shadow-lg);
+      padding:28px 24px;
+    }
+
+    /* Tab switcher */
+    .auth-tabs{
+      display:flex;background:rgba(100,130,200,.10);
+      border-radius:var(--r-full);padding:4px;
+      margin-bottom:24px;
+    }
+    .auth-tab{
+      flex:1;padding:10px;border-radius:var(--r-full);
+      font-size:14px;font-weight:700;
+      color:var(--c-text2);cursor:pointer;text-align:center;
+      transition:all .3s var(--ease);
+    }
+    .auth-tab.active{
+      background:white;color:var(--c-blue);
+      box-shadow:0 2px 12px rgba(100,130,200,.2);
+    }
+
+    /* Form fields */
+    .field-group{margin-bottom:14px;}
+    .field-label{font-size:12px;font-weight:700;color:var(--c-text2);
+      text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+    .field-input{
+      width:100%;padding:14px 16px;
+      border-radius:var(--r-md);
+      border:1.5px solid rgba(100,130,200,.2);
+      background:rgba(255,255,255,.7);
+      font-family:var(--f-body);font-size:15px;
+      color:var(--c-text);outline:none;
+      transition:all .25s var(--ease);
+    }
+    .field-input::placeholder{color:var(--c-text3);}
+    .field-input:focus{
+      border-color:rgba(107,168,224,.6);
+      background:rgba(255,255,255,.95);
+      box-shadow:0 0 0 4px rgba(107,168,224,.15);
+    }
+    .field-input.error{
+      border-color:rgba(224,144,168,.7);
+      box-shadow:0 0 0 4px rgba(224,144,168,.15);
+    }
+
+    /* Buttons */
+    .btn-auth{
+      width:100%;padding:16px;border-radius:var(--r-md);border:none;
+      background:var(--g-calm);color:white;
+      font-family:var(--f-body);font-size:15px;font-weight:700;
+      cursor:pointer;letter-spacing:.2px;
+      box-shadow:0 8px 28px rgba(107,168,224,.45);
+      transition:all .3s var(--spring);margin-top:6px;
+      position:relative;overflow:hidden;
+    }
+    .btn-auth:active{transform:scale(.97);}
+    .btn-auth:disabled{opacity:.7;cursor:wait;}
+    .btn-auth .btn-loader{
+      display:none;position:absolute;inset:0;
+      align-items:center;justify-content:center;
+      background:inherit;
+    }
+    .btn-auth.loading .btn-loader{display:flex;}
+    .btn-auth.loading .btn-text{opacity:0;}
+
+    .btn-google{
+      width:100%;padding:14px;border-radius:var(--r-md);
+      border:1.5px solid rgba(100,130,200,.22);
+      background:rgba(255,255,255,.8);
+      font-family:var(--f-body);font-size:14px;font-weight:700;
+      color:var(--c-text);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      transition:all .3s var(--spring));margin-top:10px;
+      box-shadow:0 2px 12px rgba(100,130,200,.1);
+    }
+    .btn-google:active{transform:scale(.97);}
+    .btn-google img{width:20px;height:20px;}
+
+    .auth-divider{
+      display:flex;align-items:center;gap:10px;margin:16px 0;
+    }
+    .auth-divider::before,.auth-divider::after{
+      content:'';flex:1;height:1px;background:rgba(100,130,200,.18);
+    }
+    .auth-divider span{font-size:12px;font-weight:600;color:var(--c-text3);}
+
+    .auth-error{
+      background:rgba(224,144,168,.12);border:1px solid rgba(224,144,168,.35);
+      border-radius:var(--r-sm);padding:11px 14px;
+      font-size:13px;color:#c0305c;font-weight:500;
+      margin-bottom:12px;display:none;
+    }
+    .auth-error.show{display:block;}
+
+    /* Spinner */
+    .spinner{
+      width:22px;height:22px;border:3px solid rgba(255,255,255,.3);
+      border-top-color:white;border-radius:50%;
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* ══════════════════════════════════════
+       MAIN APP LAYER
+    ══════════════════════════════════════ */
+    #main-layer{overflow:hidden;}
+
+    /* Screens */
+    .screen{
+      position:absolute;inset:0;
+      overflow-y:auto;overflow-x:hidden;
+      padding-bottom:calc(var(--nav-h) + 16px);
+      z-index:1;opacity:0;transform:translateY(18px);
+      pointer-events:none;
+      transition:opacity .38s var(--ease),transform .38s var(--ease);
+      scrollbar-width:none;
+    }
+    .screen::-webkit-scrollbar{display:none;}
+    .screen.active{opacity:1;transform:translateY(0);pointer-events:all;}
+    .screen-inner{padding:58px 20px 0;min-height:100%;}
+
+    /* Status bar */
+    .status-bar{
+      position:absolute;top:0;left:0;right:0;height:50px;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 24px;z-index:10;
+    }
+    .status-time{font-size:15px;font-weight:700;color:var(--c-text);}
+    .status-icons{display:flex;gap:5px;align-items:center;
+      font-size:12px;color:var(--c-text2);}
+
+    /* Card */
+    .card{
+      background:var(--c-card);backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      border:1.5px solid var(--c-card-b);
+      border-radius:var(--r-lg);
+      box-shadow:var(--c-shadow);
+      padding:20px;margin-bottom:14px;
+      transition:transform .25s var(--spring);
+    }
+    .card:active{transform:scale(.985);}
+
+    /* Section title */
+    .sec-title{font-size:16px;font-weight:800;color:var(--c-text);
+      margin-bottom:12px;margin-top:4px;}
+
+    /* ══════════════════════════════════════
+       BOTTOM NAV
+    ══════════════════════════════════════ */
+    #bottom-nav{
+      position:absolute;bottom:0;left:0;right:0;
+      height:var(--nav-h);
+      background:rgba(255,255,255,.82);
+      backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+      border-top:1px solid rgba(255,255,255,.96);
+      box-shadow:0 -8px 32px rgba(100,130,200,.14);
+      display:flex;align-items:center;justify-content:space-around;
+      padding:0 8px 12px;z-index:100;
+      border-radius:var(--r-xl) var(--r-xl) 0 0;
+    }
+    .nav-item{
+      display:flex;flex-direction:column;align-items:center;gap:3px;
+      padding:7px 14px;border-radius:var(--r-md);
+      cursor:pointer;transition:all .3s var(--spring);flex:1;
+    }
+    .nav-item:active{transform:scale(.86);}
+    .nav-icon{width:26px;height:26px;display:flex;align-items:center;
+      justify-content:center;transition:all .3s var(--ease);}
+    .nav-icon svg{width:23px;height:23px;stroke:var(--c-text3);fill:none;
+      stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+      transition:all .3s var(--ease);}
+    .nav-label{font-size:10px;font-weight:700;color:var(--c-text3);
+      transition:all .3s var(--ease);letter-spacing:.3px;}
+    .nav-item.active .nav-icon svg{stroke:var(--c-blue);}
+    .nav-item.active .nav-label{color:var(--c-blue);}
+    .nav-item.active .nav-icon{
+      background:rgba(107,168,224,.14);border-radius:var(--r-sm);}
+
+    /* Center calm nav pill */
+    .nav-calm .nav-icon{
+      width:54px;height:54px;background:var(--g-calm);border-radius:50%;
+      box-shadow:0 4px 18px rgba(107,168,224,.45),0 0 0 5px rgba(107,168,224,.14);}
+    .nav-calm .nav-icon svg{stroke:white;width:22px;height:22px;}
+    .nav-calm .nav-label{color:var(--c-blue);font-weight:800;}
+    .nav-calm.active .nav-icon{
+      box-shadow:0 6px 26px rgba(107,168,224,.65),0 0 0 7px rgba(107,168,224,.22);
+      transform:scale(1.06);}
+
+    /* ══════════════════════════════════════
+       HOME SCREEN
+    ══════════════════════════════════════ */
+    .home-header{margin-bottom:18px;}
+    .home-greeting{font-size:26px;font-weight:800;color:var(--c-text);line-height:1.2;}
+    .home-sub{font-size:14px;color:var(--c-text2);margin-top:4px;font-weight:500;}
+
+    /* Hero card */
+    .hero-card{
+      background:var(--g-calm);border-radius:var(--r-xl);
+      padding:24px;margin-bottom:14px;
+      box-shadow:0 14px 44px rgba(107,168,224,.5);
+      position:relative;overflow:hidden;
+    }
+    .hero-card::before{content:'';position:absolute;
+      top:-28px;right:-28px;width:150px;height:150px;
+      background:rgba(255,255,255,.16);border-radius:50%;}
+    .hero-card::after{content:'';position:absolute;
+      bottom:-35px;right:24px;width:110px;height:110px;
+      background:rgba(255,255,255,.10);border-radius:50%;}
+    .hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
+    .hero-num{font-size:64px;font-weight:800;color:white;line-height:1;
+      font-variant-numeric:tabular-nums;}
+    .hero-label{font-size:13px;color:rgba(255,255,255,.85);font-weight:500;margin-top:2px;}
+    .hero-sessions{font-size:12px;color:rgba(255,255,255,.8);font-weight:500;margin-top:4px;}
+    .hero-badge{
+      background:rgba(255,255,255,.26);border-radius:var(--r-full);
+      padding:6px 14px;font-size:13px;font-weight:700;color:white;
+      backdrop-filter:blur(8px);}
+    .mini-chart{margin-top:16px;height:44px;display:flex;align-items:flex-end;gap:5px;}
+    .mc-bar{flex:1;border-radius:5px 5px 0 0;
+      background:rgba(255,255,255,.28);transition:height .8s var(--spring);}
+    .mc-bar.today{background:rgba(255,255,255,.72);}
+
+    /* Bar chart */
+    .bar-chart{display:flex;align-items:flex-end;gap:7px;height:74px;}
+    .bar-col{flex:1;display:flex;flex-direction:column;
+      align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+    .bar{width:100%;border-radius:6px 6px 0 0;}
+    .bar.c{background:var(--g-calm);opacity:.85;}
+    .bar-day{font-size:9px;font-weight:700;color:var(--c-text3);text-transform:uppercase;}
+
+    /* Line chart */
+    .lc-wrap{position:relative;height:66px;margin-top:10px;}
+    .lc-wrap svg{width:100%;height:100%;overflow:visible;}
+
+    /* Device card */
+    .device-card{display:flex;align-items:center;gap:16px;}
+    .wrist-wrap{width:74px;height:74px;flex-shrink:0;position:relative;}
+    .pulse-ring{position:absolute;top:50%;left:50%;border-radius:50%;
+      border:2px solid rgba(107,168,224,.5);
+      animation:pulseR 2.2s ease-out infinite;}
+    @keyframes pulseR{
+      0%{width:36px;height:36px;transform:translate(-50%,-50%);opacity:1;}
+      100%{width:88px;height:88px;transform:translate(-50%,-50%);opacity:0;}
+    }
+    .wrist-band{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);
+      width:56px;height:56px;border-radius:15px;
+      background:var(--g-calm);
+      box-shadow:0 4px 18px rgba(107,168,224,.45);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .wrist-band svg{width:26px;height:26px;stroke:white;fill:none;
+      stroke-width:2;stroke-linecap:round;}
+    .meter-track{height:8px;background:rgba(100,130,200,.14);
+      border-radius:var(--r-full);overflow:hidden;margin-top:8px;}
+    .meter-fill{height:100%;border-radius:var(--r-full);
+      background:var(--g-calm);transition:width 1.1s var(--ease);}
+    .meter-fill.hi{background:var(--g-warm);}
+    .meter-label{font-size:11px;color:var(--c-text2);margin-top:4px;font-weight:600;}
+
+    /* ══════════════════════════════════════
+       CALM SCREEN
+    ══════════════════════════════════════ */
+    #screen-calm .screen-inner{
+      display:flex;flex-direction:column;
+      align-items:center;padding-top:68px;
+    }
+    .calm-title{font-family:var(--f-display);font-size:26px;
+      color:var(--c-text);margin-bottom:3px;}
+    .calm-sub{font-size:14px;color:var(--c-text2);font-weight:500;
+      margin-bottom:34px;}
+
+    /* Breathing circle */
+    .breath-wrap{
+      position:relative;width:210px;height:210px;
+      display:flex;align-items:center;justify-content:center;
+      margin-bottom:30px;cursor:pointer;
+    }
+    .br{position:absolute;border-radius:50%;transition:transform .15s ease;}
+    .br3{width:210px;height:210px;
+      background:radial-gradient(circle,rgba(107,168,224,.08),rgba(168,130,216,.06));
+      border:1.5px solid rgba(107,168,224,.18);}
+    .br2{width:164px;height:164px;
+      background:radial-gradient(circle,rgba(107,168,224,.14),rgba(168,130,216,.10));
+      border:1.5px solid rgba(107,168,224,.28);}
+    .br1{width:118px;height:118px;
+      background:var(--g-calm);
+      box-shadow:0 0 44px rgba(107,168,224,.45),0 0 88px rgba(168,130,216,.22);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;}
+    .breath-action{font-size:14px;font-weight:800;color:white;text-align:center;}
+    .breath-cnt{font-size:30px;font-weight:800;color:white;display:block;margin-top:1px;}
+
+    @keyframes inhale{0%{transform:scale(1);}100%{transform:scale(1.44);}}
+    @keyframes exhale{0%{transform:scale(1.44);}100%{transform:scale(1);}}
+    @keyframes inhale2{0%{transform:scale(1);}100%{transform:scale(1.26);}}
+    @keyframes exhale2{0%{transform:scale(1.26);}100%{transform:scale(1);}}
+    @keyframes holdPulse{0%,100%{box-shadow:0 0 44px rgba(107,168,224,.45);}
+      50%{box-shadow:0 0 80px rgba(107,168,224,.7),0 0 130px rgba(168,130,216,.4);}}
+    .br1.inhaling{animation:inhale 4s ease-in-out forwards;}
+    .br2.inhaling{animation:inhale2 4s ease-in-out forwards;}
+    .br1.exhaling{animation:exhale 4s ease-in-out forwards;}
+    .br2.exhaling{animation:exhale2 4s ease-in-out forwards;}
+    .br1.holding{animation:holdPulse 1s ease-in-out infinite;}
+
+    /* Toggles */
+    .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    .toggle-row:last-child{margin-bottom:0;}
+    .tgl-lbl{font-size:14px;font-weight:700;color:var(--c-text);}
+    .tgl-desc{font-size:11px;color:var(--c-text2);margin-top:2px;}
+    .toggle{position:relative;width:48px;height:28px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .tgl-slider{position:absolute;inset:0;background:rgba(100,130,200,.18);
+      border-radius:var(--r-full);cursor:pointer;transition:all .3s var(--ease);}
+    .tgl-slider::before{content:'';position:absolute;
+      height:22px;width:22px;left:3px;top:3px;
+      background:white;border-radius:50%;
+      transition:all .4s var(--spring);
+      box-shadow:0 2px 8px rgba(0,0,0,.15);}
+    .toggle input:checked+.tgl-slider{background:var(--g-calm);}
+    .toggle input:checked+.tgl-slider::before{transform:translateX(20px);}
+
+    /* Buttons */
+    .btn-p{
+      width:100%;padding:15px;border-radius:var(--r-md);border:none;
+      background:var(--g-calm);color:white;
+      font-family:var(--f-body);font-size:15px;font-weight:700;
+      cursor:pointer;box-shadow:0 6px 24px rgba(107,168,224,.42);
+      transition:all .3s var(--spring));
+    }
+    .btn-p:active{transform:scale(.96);}
+
+    /* Sound buttons */
+    .sound-row{display:flex;gap:8px;margin-top:4px;}
+    .snd-btn{
+      flex:1;padding:11px 6px;border-radius:var(--r-md);
+      border:1.5px solid rgba(100,130,200,.18);
+      background:var(--c-card);
+      font-family:var(--f-body);font-size:11px;font-weight:700;
+      color:var(--c-text2);cursor:pointer;text-align:center;
+      transition:all .25s var(--ease);
+      display:flex;flex-direction:column;align-items:center;gap:3px;
+    }
+    .snd-btn .se{font-size:20px;}
+    .snd-btn.active{border-color:rgba(107,168,224,.5);
+      background:rgba(107,168,224,.1);color:var(--c-blue);}
+    .snd-btn:active{transform:scale(.93);}
+
+    /* ══════════════════════════════════════
+       STATS SCREEN
+    ══════════════════════════════════════ */
+    .stats-hero{
+      background:var(--g-mint);border-radius:var(--r-xl);
+      padding:24px;margin-bottom:14px;
+      box-shadow:0 14px 44px rgba(100,200,184,.42);
+      position:relative;overflow:hidden;
+    }
+    .stats-hero::before{content:'';position:absolute;
+      top:-18px;right:-18px;width:110px;height:110px;
+      background:rgba(255,255,255,.16);border-radius:50%;}
+    .stats-big{font-size:58px;font-weight:800;color:white;line-height:1;}
+    .stats-lbl{font-size:14px;color:rgba(255,255,255,.9);font-weight:600;margin-top:4px;}
+    .stats-pill{
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(255,255,255,.26);border-radius:var(--r-full);
+      padding:6px 14px;font-size:13px;font-weight:700;color:white;
+      margin-top:12px;backdrop-filter:blur(8px);
+    }
+
+    /* Stats bar chart */
+    .stats-bars{display:flex;align-items:flex-end;gap:8px;height:100px;}
+    .sb-col{flex:1;display:flex;flex-direction:column;
+      align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+    .sb{width:100%;border-radius:6px 6px 0 0;cursor:pointer;
+      transition:all .3s var(--spring));}
+    .sb-val{font-size:9px;font-weight:700;color:var(--c-text3);}
+    .sb-day{font-size:10px;font-weight:700;color:var(--c-text3);text-transform:uppercase;}
+
+    /* Freq items */
+    .freq-item{display:flex;align-items:center;gap:12px;
+      padding:12px 0;border-bottom:1px solid rgba(100,130,200,.12);}
+    .freq-item:last-child{border-bottom:none;}
+    .freq-ico{font-size:20px;width:40px;height:40px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(100,130,200,.1);border-radius:var(--r-sm);flex-shrink:0;}
+    .freq-n{font-size:14px;font-weight:700;color:var(--c-text);}
+    .freq-c{font-size:12px;color:var(--c-text2);margin-top:1px;font-weight:500;}
+    .freq-bar-w{width:80px;}
+    .fbt{height:6px;background:rgba(100,130,200,.15);border-radius:var(--r-full);}
+    .fbf{height:100%;border-radius:var(--r-full);background:var(--g-calm);}
+
+    /* ══════════════════════════════════════
+       PROFILE SCREEN
+    ══════════════════════════════════════ */
+    .profile-hero{
+      display:flex;flex-direction:column;align-items:center;
+      padding:8px 0 22px;
+    }
+    .avatar{
+      width:88px;height:88px;border-radius:50%;
+      background:var(--g-calm);
+      display:flex;align-items:center;justify-content:center;
+      font-size:36px;margin-bottom:14px;
+      box-shadow:0 10px 28px rgba(107,168,224,.42);
+      border:4px solid rgba(255,255,255,.92);
+      position:relative;cursor:pointer;
+    }
+    .avatar::after{content:'';position:absolute;
+      bottom:4px;right:4px;width:16px;height:16px;
+      background:var(--c-mint);border-radius:50%;border:2px solid white;}
+    .profile-name-wrap{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+    .profile-name-display{
+      font-size:21px;font-weight:800;color:var(--c-text);
+    }
+    .edit-name-btn{
+      width:28px;height:28px;border-radius:50%;
+      background:rgba(107,168,224,.15);border:none;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .25s var(--spring));
+    }
+    .edit-name-btn:active{transform:scale(.88);}
+    .edit-name-btn svg{width:14px;height:14px;stroke:var(--c-blue);
+      fill:none;stroke-width:2.5;stroke-linecap:round;}
+    .profile-tag{font-size:13px;color:var(--c-text2);
+      font-style:italic;font-weight:500;}
+    .profile-email{font-size:12px;color:var(--c-text3);margin-top:3px;font-weight:500;}
+
+    /* Name editor */
+    .name-editor{
+      display:none;flex-direction:column;gap:10px;
+      margin-bottom:14px;
+    }
+    .name-editor.show{display:flex;}
+    .name-input{
+      width:100%;padding:13px 16px;
+      border-radius:var(--r-md);
+      border:1.5px solid rgba(107,168,224,.4);
+      background:rgba(255,255,255,.8);
+      font-family:var(--f-body);font-size:15px;font-weight:700;
+      color:var(--c-text);outline:none;
+    }
+    .name-input:focus{border-color:rgba(107,168,224,.7);
+      box-shadow:0 0 0 4px rgba(107,168,224,.14);}
+    .name-editor-btns{display:flex;gap:8px;}
+    .btn-save-name{
+      flex:1;padding:12px;border-radius:var(--r-md);border:none;
+      background:var(--g-calm);color:white;
+      font-family:var(--f-body);font-size:14px;font-weight:700;
+      cursor:pointer;transition:all .3s var(--spring));
+    }
+    .btn-save-name:active{transform:scale(.96);}
+    .btn-cancel-name{
+      padding:12px 18px;border-radius:var(--r-md);
+      border:1.5px solid rgba(100,130,200,.22);
+      background:transparent;color:var(--c-text2);
+      font-family:var(--f-body);font-size:14px;font-weight:700;
+      cursor:pointer;transition:all .3s var(--spring));
+    }
+    .btn-cancel-name:active{transform:scale(.96);}
+
+    /* Slider */
+    .slider-wrap{margin:8px 0;}
+    .slider-row{display:flex;justify-content:space-between;
+      align-items:center;margin-bottom:8px;}
+    .slider-name{font-size:13px;font-weight:600;color:var(--c-text);}
+    .slider-val{font-size:13px;font-weight:700;color:var(--c-blue);}
+    input[type=range]{
+      -webkit-appearance:none;width:100%;height:8px;
+      border-radius:var(--r-full);background:rgba(100,130,200,.18);
+      outline:none;cursor:pointer;
+    }
+    input[type=range]::-webkit-slider-thumb{
+      -webkit-appearance:none;width:22px;height:22px;
+      border-radius:50%;background:var(--g-calm);
+      box-shadow:0 2px 10px rgba(107,168,224,.5);
+      cursor:pointer;transition:all .3s var(--spring));
+    }
+    input[type=range]::-webkit-slider-thumb:active{transform:scale(1.22);}
+
+    /* Menu items */
+    .menu-item{
+      display:flex;align-items:center;gap:13px;
+      padding:14px 0;border-bottom:1px solid rgba(100,130,200,.12);
+      cursor:pointer;transition:opacity .2s var(--ease);
+    }
+    .menu-item:last-child{border-bottom:none;}
+    .menu-item:active{opacity:.65;}
+    .mi-ico{width:40px;height:40px;border-radius:var(--r-sm);
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;flex-shrink:0;}
+    .mi-ico.blue{background:rgba(107,168,224,.14);}
+    .mi-ico.purple{background:rgba(168,130,216,.14);}
+    .mi-ico.mint{background:rgba(100,200,184,.14);}
+    .mi-ico.rose{background:rgba(224,144,168,.14);}
+    .mi-lbl{font-size:14px;font-weight:700;color:var(--c-text);}
+    .mi-desc{font-size:12px;color:var(--c-text2);margin-top:1px;font-weight:500;}
+    .mi-arr svg{width:18px;height:18px;stroke:var(--c-text3);
+      fill:none;stroke-width:2.5;stroke-linecap:round;}
+
+    /* Logout */
+    .btn-logout{
+      width:100%;padding:14px;border-radius:var(--r-md);
+      border:1.5px solid rgba(224,144,168,.35);
+      background:rgba(224,144,168,.08);
+      color:var(--c-rose);font-family:var(--f-body);
+      font-size:14px;font-weight:700;cursor:pointer;
+      transition:all .3s var(--spring));margin-top:4px;
+    }
+    .btn-logout:active{transform:scale(.97);}
+
+    /* Support card */
+    .support-info{
+      display:none;margin-top:14px;padding:12px;
+      background:rgba(224,144,168,.1);
+      border-radius:var(--r-md);
+      border:1px solid rgba(224,144,168,.25);
+    }
+    .support-info.show{display:block;}
+
+    /* ══════════════════════════════════════
+       TOAST
+    ══════════════════════════════════════ */
+    #toast{
+      position:absolute;bottom:calc(var(--nav-h) + 18px);
+      left:20px;right:20px;
+      background:var(--c-text);color:white;
+      border-radius:var(--r-md);padding:14px 18px;
+      font-size:14px;font-weight:600;z-index:300;
+      opacity:0;transform:translateY(18px);
+      transition:all .4s var(--spring));pointer-events:none;
+      display:flex;align-items:center;gap:10px;
+    }
+    #toast.show{opacity:1;transform:translateY(0);}
+
+    /* Anxiety flash */
+    #anx-flash{
+      position:absolute;inset:0;
+      background:rgba(224,144,168,.22);z-index:50;
+      pointer-events:none;opacity:0;transition:opacity .3s var(--ease);
+    }
+    #anx-flash.show{opacity:1;}
+
+    /* Band vibrate */
+    @keyframes bandVib{
+      0%,100%{transform:translate(-50%,-50%) scale(1);}
+      25%{transform:translate(-50%,-50%) scale(1.06) rotate(1.5deg);}
+      75%{transform:translate(-50%,-50%) scale(.95) rotate(-1.5deg);}
+    }
+    .wrist-band.vib{animation:bandVib .1s ease-in-out 10;}
+
+    @keyframes btnVib{
+      0%,100%{transform:translateX(0);}
+      33%{transform:translateX(-3px);}
+      66%{transform:translateX(3px);}
+    }
+    .btn-vib{animation:btnVib .08s ease-in-out 8;}
+
+    @keyframes tickUp{
+      0%{transform:translateY(10px);opacity:0;}
+      100%{transform:translateY(0);opacity:1;}
+    }
+    .tick{animation:tickUp .3s var(--ease) forwards;}
+
+    /* Firebase config warning banner */
+    #cfg-warn{
+      position:absolute;top:0;left:0;right:0;z-index:500;
+      background:linear-gradient(90deg,#f0b890,#e090a8);
+      color:white;font-size:12px;font-weight:700;
+      padding:8px 16px;text-align:center;
+      display:none;
+    }
+    #cfg-warn.show{display:block;}
+
+    /* Desktop frame */
+    @media(min-width:431px){
+      #app{border-radius:44px;
+        box-shadow:0 40px 100px rgba(40,60,140,.35);
+        margin-top:24px;height:calc(100vh - 48px);}
+      body{background:linear-gradient(135deg,#0f1628 0%,#1e1050 100%);
+        display:flex;align-items:flex-start;justify-content:center;}
+    }
+
+    /* Divider */
+    .divider{height:1px;background:rgba(100,130,200,.14);margin:12px 0;}
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Background blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <!-- Firebase config warning -->
+  <div id="cfg-warn">⚠️ Replace Firebase config values in the &lt;script&gt; at the top of this file to enable login.</div>
+
+  <!-- Anxiety flash overlay -->
+  <div id="anx-flash"></div>
+
+  <!-- ═══════════════════════════════════════
+       AUTH LAYER
+  ═══════════════════════════════════════ -->
+  <div id="auth-layer">
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="auth-logo-mark">
+        <svg viewBox="0 0 24 24">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          <circle cx="12" cy="12" r="3" fill="rgba(255,255,255,.3)" stroke="none"/>
+        </svg>
+      </div>
+      <div class="auth-app-name">NeuroCalm</div>
+      <div class="auth-tagline">Your neural companion for anxiety relief 🧠</div>
+    </div>
+
+    <!-- Auth card -->
+    <div class="auth-card">
+
+      <!-- Tab switcher -->
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-signin" onclick="switchTab('signin')">Sign In</div>
+        <div class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</div>
+      </div>
+
+      <!-- Error box -->
+      <div class="auth-error" id="auth-error"></div>
+
+      <!-- Sign In Form -->
+      <div id="form-signin">
+        <div class="field-group">
+          <div class="field-label">Email</div>
+          <input type="email" class="field-input" id="si-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Password</div>
+          <input type="password" class="field-input" id="si-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-auth" id="si-btn" onclick="doSignIn()">
+          <span class="btn-text">Sign In</span>
+          <div class="btn-loader"><div class="spinner"></div></div>
+        </button>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="form-signup" style="display:none;">
+        <div class="field-group">
+          <div class="field-label">Display Name</div>
+          <input type="text" class="field-input" id="su-name" placeholder="Your name">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Email</div>
+          <input type="email" class="field-input" id="su-email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Password</div>
+          <input type="password" class="field-input" id="su-pass" placeholder="Min. 6 characters" autocomplete="new-password">
+        </div>
+        <button class="btn-auth" id="su-btn" onclick="doSignUp()">
+          <span class="btn-text">Create Account</span>
+          <div class="btn-loader"><div class="spinner"></div></div>
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="auth-divider"><span>OR</span></div>
+
+      <!-- Google Sign-In -->
+      <button class="btn-google" onclick="doGoogleSignIn()">
+        <!-- Google "G" SVG -->
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.6 20.2H42V20H24v8h11.3C33.6 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.6 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.8z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.9 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.6 29.6 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.3C29.3 35.3 26.8 36 24 36c-5.2 0-9.6-3.2-11.3-7.6l-6.5 5C9.5 39.4 16.2 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20.2H42V20H24v8h11.3c-.8 2.3-2.4 4.3-4.4 5.7l6.2 5.3C36.8 39.8 44 34 44 24c0-1.3-.1-2.6-.4-3.8z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+    </div><!-- /auth-card -->
+  </div><!-- /auth-layer -->
+
+  <!-- ═══════════════════════════════════════
+       MAIN APP LAYER
+  ═══════════════════════════════════════ -->
+  <div id="main-layer" class="hidden">
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="status-time" id="status-clock">9:41</span>
+      <div class="status-icons">
+        <span>●●●</span>
+        <span>WiFi</span>
+        <span>🔋</span>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: HOME ── -->
+    <div class="screen active" id="screen-home">
+      <div class="screen-inner">
+
+        <div class="home-header">
+          <div class="home-greeting">Hello, <span id="home-name">there</span> 👋</div>
+          <div class="home-sub">Your wellbeing is our priority 🌿</div>
+        </div>
+
+        <!-- Hero card -->
+        <div class="hero-card">
+          <div class="hero-top">
+            <div>
+              <div class="hero-num" id="vib-count">0</div>
+              <div class="hero-label">calming vibrations today</div>
+              <div class="hero-sessions">Sessions today: <span id="sess-count">0</span></div>
+            </div>
+            <div class="hero-badge" id="hero-badge">😊 Improving</div>
+          </div>
+          <div class="mini-chart" id="mini-chart"></div>
+        </div>
+
+        <!-- Progress -->
+        <div class="sec-title">Your Progress</div>
+
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;color:var(--c-text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Weekly Sessions</div>
+          <div class="bar-chart" id="weekly-bar"></div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;color:var(--c-text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Anxiety Trend</div>
+          <div class="lc-wrap"><svg id="trend-svg" viewBox="0 0 300 60" preserveAspectRatio="none"></svg></div>
+        </div>
+
+        <!-- Device -->
+        <div class="sec-title">Current State</div>
+        <div class="card device-card">
+          <div class="wrist-wrap">
+            <div class="pulse-ring"></div>
+            <div class="wrist-band" id="wrist-band">
+              <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:700;color:var(--c-text);" id="dev-status">Detecting anxiety…</div>
+            <div style="font-size:12px;color:var(--c-text2);margin-top:3px;font-weight:500;" id="dev-sub">Adjusting vibrations…</div>
+            <div class="meter-track">
+              <div class="meter-fill" id="anx-fill" style="width:30%"></div>
+            </div>
+            <div class="meter-label">Anxiety level: <span id="anx-val">30</span>/100</div>
+          </div>
+        </div>
+
+        <div style="height:8px;"></div>
+      </div>
+    </div><!-- /screen-home -->
+
+    <!-- ── SCREEN: CALM ── -->
+    <div class="screen" id="screen-calm">
+      <div class="screen-inner">
+        <div class="calm-title">Breathe &amp; Calm</div>
+        <div class="calm-sub">Tap the circle to begin</div>
+
+        <!-- Breathing circle -->
+        <div class="breath-wrap" onclick="toggleBreath()">
+          <div class="br br3" id="br3"></div>
+          <div class="br br2" id="br2"></div>
+          <div class="br br1" id="br1">
+            <div>
+              <div class="breath-action" id="br-action">TAP</div>
+              <span class="breath-cnt" id="br-cnt">▶</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:100%;">
+          <!-- Guided toggles -->
+          <div class="card">
+            <div class="toggle-row">
+              <div><div class="tgl-lbl">Guided Breathing</div>
+                <div class="tgl-desc">4-4-4 breathing pattern</div></div>
+              <label class="toggle"><input type="checkbox" id="guided-tog" checked>
+                <div class="tgl-slider"></div></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tgl-lbl">Automatic Mode</div>
+                <div class="tgl-desc">Triggers when anxiety detected</div></div>
+              <label class="toggle"><input type="checkbox" id="auto-tog">
+                <div class="tgl-slider"></div></label>
+            </div>
+          </div>
+
+          <!-- Instant calm -->
+          <div class="card">
+            <div style="font-size:13px;font-weight:600;color:var(--c-text2);margin-bottom:10px;">Instant Relief</div>
+            <button class="btn-p" id="instant-btn" onclick="instantCalm()">⚡ Instant Calming Vibration</button>
+          </div>
+
+          <!-- Sounds -->
+          <div class="card">
+            <div style="font-size:13px;font-weight:600;color:var(--c-text2);margin-bottom:10px;">Ambient Sounds</div>
+            <div class="sound-row">
+              <div class="snd-btn" onclick="pickSound('rain',this)"><span class="se">🌧️</span>Rain</div>
+              <div class="snd-btn" onclick="pickSound('waves',this)"><span class="se">🌊</span>Waves</div>
+              <div class="snd-btn" onclick="pickSound('forest',this)"><span class="se">🌲</span>Forest</div>
+              <div class="snd-btn" onclick="pickSound('off',this)"><span class="se">🔇</span>None</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /screen-calm -->
+
+    <!-- ── SCREEN: STATS ── -->
+    <div class="screen" id="screen-stats">
+      <div class="screen-inner">
+
+        <div class="stats-hero">
+          <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.8);margin-bottom:4px;">THIS WEEK</div>
+          <div class="stats-big" id="weekly-total">134</div>
+          <div class="stats-lbl">calming vibrations</div>
+          <div class="stats-pill">📉 22% fewer anxiety episodes</div>
+        </div>
+
+        <div class="sec-title">Anxiety Level Chart</div>
+        <div class="card">
+          <div style="font-size:11px;font-weight:700;color:var(--c-text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Daily Average</div>
+          <div style="position:relative;height:88px;">
+            <svg id="anx-line-svg" viewBox="0 0 300 80" preserveAspectRatio="none" style="width:100%;height:100%;"></svg>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;">
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">MON</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">TUE</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">WED</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">THU</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">FRI</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">SAT</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">TODAY</span>
+          </div>
+        </div>
+
+        <div class="sec-title">Vibrations Per Day</div>
+        <div class="card">
+          <div class="stats-bars" id="stats-bars"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">MON</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">TUE</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">WED</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">THU</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">FRI</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">SAT</span>
+            <span style="font-size:9px;color:var(--c-text3);font-weight:700;">TODAY</span>
+          </div>
+        </div>
+
+        <div class="sec-title">Most Frequent Moments</div>
+        <div class="card">
+          <div class="freq-item">
+            <div class="freq-ico">🌅</div>
+            <div style="flex:1;"><div class="freq-n">Morning</div>
+              <div class="freq-c">42 episodes this week</div></div>
+            <div class="freq-bar-w"><div class="fbt"><div class="fbf" style="width:85%;background:var(--g-warm);"></div></div></div>
+          </div>
+          <div class="freq-item">
+            <div class="freq-ico">🏫</div>
+            <div style="flex:1;"><div class="freq-n">School / Work</div>
+              <div class="freq-c">58 episodes this week</div></div>
+            <div class="freq-bar-w"><div class="fbt"><div class="fbf" style="width:100%;"></div></div></div>
+          </div>
+          <div class="freq-item">
+            <div class="freq-ico">🌙</div>
+            <div style="flex:1;"><div class="freq-n">Night</div>
+              <div class="freq-c">34 episodes this week</div></div>
+            <div class="freq-bar-w"><div class="fbt"><div class="fbf" style="width:65%;background:var(--g-mint);"></div></div></div>
+          </div>
+        </div>
+
+        <div style="height:8px;"></div>
+      </div>
+    </div><!-- /screen-stats -->
+
+    <!-- ── SCREEN: PROFILE ── -->
+    <div class="screen" id="screen-profile">
+      <div class="screen-inner">
+
+        <div class="profile-hero">
+          <div class="avatar">🧘</div>
+          <div class="profile-name-wrap">
+            <div class="profile-name-display" id="prof-name">Loading…</div>
+            <button class="edit-name-btn" onclick="openNameEditor()" title="Edit name">
+              <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+          <div class="profile-tag">"Your progress matters"</div>
+          <div class="profile-email" id="prof-email"></div>
+        </div>
+
+        <!-- Name editor -->
+        <div class="name-editor" id="name-editor">
+          <div class="field-label" style="font-size:12px;font-weight:700;color:var(--c-text2);text-transform:uppercase;letter-spacing:.8px;">Change Display Name</div>
+          <input type="text" class="name-input" id="name-input" placeholder="Enter your name">
+          <div class="name-editor-btns">
+            <button class="btn-save-name" onclick="saveName()">💾 Save Name</button>
+            <button class="btn-cancel-name" onclick="closeNameEditor()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Band settings -->
+        <div class="sec-title">Band Settings</div>
+        <div class="card">
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <span class="slider-name">Vibration Intensity</span>
+              <span class="slider-val" id="int-val">70%</span>
+            </div>
+            <input type="range" min="0" max="100" value="70" id="int-slider"
+              oninput="document.getElementById('int-val').textContent=this.value+'%';saveSettings();">
+          </div>
+          <div class="divider"></div>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <span class="slider-name">Vibration Duration</span>
+              <span class="slider-val" id="dur-val">2.0s</span>
+            </div>
+            <input type="range" min="5" max="50" value="20" id="dur-slider"
+              oninput="document.getElementById('dur-val').textContent=(this.value/10).toFixed(1)+'s';saveSettings();">
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="sec-title">Options</div>
+        <div class="card" style="padding:4px 20px;">
+          <div class="menu-item" onclick="toast('📡 Syncing band…')">
+            <div class="mi-ico blue">📡</div>
+            <div style="flex:1;"><div class="mi-lbl">Sync Band</div>
+              <div class="mi-desc">Last sync: just now</div></div>
+            <div class="mi-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+          </div>
+          <div class="menu-item" onclick="toast('⚙️ Opening preferences…')">
+            <div class="mi-ico purple">⚙️</div>
+            <div style="flex:1;"><div class="mi-lbl">Calm Preferences</div>
+              <div class="mi-desc">Patterns & timings</div></div>
+            <div class="mi-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+          </div>
+          <div class="menu-item" onclick="toast('📋 Loading history…')">
+            <div class="mi-ico mint">📋</div>
+            <div style="flex:1;"><div class="mi-lbl">Full History</div>
+              <div class="mi-desc">All sessions & episodes</div></div>
+            <div class="mi-arr"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+          </div>
+        </div>
+
+        <!-- Support mode -->
+        <div class="sec-title">Support Mode</div>
+        <div class="card">
+          <div class="toggle-row" style="margin-bottom:0;">
+            <div style="flex:1;padding-right:12px;">
+              <div class="tgl-lbl">🆘 Emergency Alert</div>
+              <div class="tgl-desc" style="margin-top:4px;line-height:1.5;">
+                Alert a trusted contact on high-anxiety detection
+              </div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="support-tog" onchange="onSupportToggle(this)">
+              <div class="tgl-slider"></div>
+            </label>
+          </div>
+          <div class="support-info" id="support-info">
+            <div style="font-size:13px;font-weight:700;color:var(--c-rose);">📲 Alert Enabled</div>
+            <div style="font-size:12px;color:var(--c-text2);margin-top:4px;">Sending to: <strong>Trusted Contact (+1 555 0192)</strong></div>
+          </div>
+        </div>
+
+        <!-- Logout -->
+        <div class="sec-title">Account</div>
+        <div class="card">
+          <button class="btn-logout" onclick="doLogout()">🚪 Sign Out</button>
+        </div>
+
+        <div style="height:8px;"></div>
+      </div>
+    </div><!-- /screen-profile -->
+
+    <!-- BOTTOM NAV -->
+    <nav id="bottom-nav">
+      <div class="nav-item active" data-s="home" onclick="navTo('home')">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div>
+        <span class="nav-label">Home</span>
+      </div>
+      <div class="nav-item" data-s="stats" onclick="navTo('stats')">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+        <span class="nav-label">Statistics</span>
+      </div>
+      <div class="nav-item nav-calm" data-s="calm" onclick="navTo('calm')">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+        <span class="nav-label">Calm</span>
+      </div>
+      <div class="nav-item" data-s="profile" onclick="navTo('profile')">
+        <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <span class="nav-label">Profile</span>
+      </div>
+    </nav>
+
+  </div><!-- /main-layer -->
+
+  <!-- Toast -->
+  <div id="toast"><span id="toast-ico">✨</span><span id="toast-msg"></span></div>
+
+</div><!-- /app -->
+
+<script>
+/* ═════════════════════════════════════════════════════════════
+   FIREBASE INIT
+═════════════════════════════════════════════════════════════ */
+let firebaseReady = false;
+let auth, db, currentUser = null;
+
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+  firebaseReady = FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+} catch(e) {
+  console.warn('Firebase init failed:', e);
+}
+
+// Show config warning if placeholder values detected
+if (!firebaseReady) {
+  document.getElementById('cfg-warn').classList.add('show');
+}
+
+/* ═════════════════════════════════════════════════════════════
+   STATE
+═════════════════════════════════════════════════════════════ */
+let state = {
+  anxietyLevel: 30,
+  vibrationCount: 12,
+  sessionCount: 3,
+  intensity: 70,
+  duration: 20,
+  autoMode: false,
+  supportMode: false,
+  activeSound: null,
+  weeklyData: [],
+  anxHistory: [],
+};
+
+function genMockData() {
+  state.weeklyData = [18,24,31,22,15,28,state.vibrationCount];
+  state.anxHistory = [72,65,58,70,52,44,Math.round(state.anxietyLevel)];
+}
+
+/* ═════════════════════════════════════════════════════════════
+   FIRESTORE: Load & Save user profile
+═════════════════════════════════════════════════════════════ */
+async function loadUserProfile(uid) {
+  if (!firebaseReady) return;
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      state.intensity      = data.intensity  ?? 70;
+      state.duration       = data.duration   ?? 20;
+      state.autoMode       = data.autoMode   ?? false;
+      state.supportMode    = data.supportMode ?? false;
+      state.vibrationCount = data.vibrationCount ?? 12;
+      state.sessionCount   = data.sessionCount ?? 3;
+      applySettingsToUI();
+    }
+  } catch(e) { console.warn('loadUserProfile:', e); }
+}
+
+async function saveUserProfile() {
+  if (!firebaseReady || !currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({
+      displayName:    currentUser.displayName || '',
+      email:          currentUser.email || '',
+      intensity:      state.intensity,
+      duration:       state.duration,
+      autoMode:       state.autoMode,
+      supportMode:    state.supportMode,
+      vibrationCount: state.vibrationCount,
+      sessionCount:   state.sessionCount,
+      updatedAt:      firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.warn('saveUserProfile:', e); }
+}
+
+function applySettingsToUI() {
+  document.getElementById('int-slider').value  = state.intensity;
+  document.getElementById('int-val').textContent = state.intensity + '%';
+  document.getElementById('dur-slider').value  = state.duration;
+  document.getElementById('dur-val').textContent = (state.duration/10).toFixed(1) + 's';
+  document.getElementById('auto-tog').checked  = state.autoMode;
+  document.getElementById('support-tog').checked = state.supportMode;
+  document.getElementById('support-info').classList.toggle('show', state.supportMode);
+}
+
+function saveSettings() {
+  state.intensity = parseInt(document.getElementById('int-slider').value);
+  state.duration  = parseInt(document.getElementById('dur-slider').value);
+  saveUserProfile();
+}
+
+/* ═════════════════════════════════════════════════════════════
+   AUTH HELPERS
+═════════════════════════════════════════════════════════════ */
+let currentTab = 'signin';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-signin').classList.toggle('active', tab==='signin');
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+  document.getElementById('form-signin').style.display = tab==='signin' ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = tab==='signup' ? 'block' : 'none';
+  clearAuthError();
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function clearAuthError() {
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function setAuthLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.classList.toggle('loading', loading);
+  btn.disabled = loading;
+}
+
+function friendlyError(code) {
+  const map = {
+    'auth/user-not-found':       'No account found with that email.',
+    'auth/wrong-password':       'Incorrect password. Try again.',
+    'auth/invalid-email':        'Please enter a valid email address.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password':        'Password must be at least 6 characters.',
+    'auth/too-many-requests':    'Too many attempts. Please wait a moment.',
+    'auth/network-request-failed':'Network error. Check your connection.',
+    'auth/popup-closed-by-user': 'Sign-in cancelled.',
+    'auth/cancelled-popup-request': 'Sign-in cancelled.',
+  };
+  return map[code] || 'Something went wrong. Please try again.';
+}
+
+/* ═════════════════════════════════════════════════════════════
+   AUTH ACTIONS
+═════════════════════════════════════════════════════════════ */
+async function doSignIn() {
+  if (!firebaseReady) { toast('⚠️ Configure Firebase first!'); return; }
+  const email = document.getElementById('si-email').value.trim();
+  const pass  = document.getElementById('si-pass').value;
+  if (!email || !pass) { showAuthError('Please fill in all fields.'); return; }
+  clearAuthError();
+  setAuthLoading('si-btn', true);
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    showAuthError(friendlyError(e.code));
+    setAuthLoading('si-btn', false);
+  }
+}
+
+async function doSignUp() {
+  if (!firebaseReady) { toast('⚠️ Configure Firebase first!'); return; }
+  const name  = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass  = document.getElementById('su-pass').value;
+  if (!name || !email || !pass) { showAuthError('Please fill in all fields.'); return; }
+  clearAuthError();
+  setAuthLoading('su-btn', true);
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    // Set display name
+    await cred.user.updateProfile({ displayName: name });
+    // Create Firestore document
+    await db.collection('users').doc(cred.user.uid).set({
+      displayName: name, email: email,
+      intensity: 70, duration: 20,
+      autoMode: false, supportMode: false,
+      vibrationCount: 0, sessionCount: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) {
+    showAuthError(friendlyError(e.code));
+    setAuthLoading('su-btn', false);
+  }
+}
+
+async function doGoogleSignIn() {
+  if (!firebaseReady) { toast('⚠️ Configure Firebase first!'); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    const result = await auth.signInWithPopup(provider);
+    // Create profile doc if new user
+    const uid = result.user.uid;
+    const doc = await db.collection('users').doc(uid).get();
+    if (!doc.exists) {
+      await db.collection('users').doc(uid).set({
+        displayName: result.user.displayName || '',
+        email: result.user.email || '',
+        intensity: 70, duration: 20,
+        autoMode: false, supportMode: false,
+        vibrationCount: 0, sessionCount: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch(e) {
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      showAuthError(friendlyError(e.code));
+    }
+  }
+}
+
+async function doLogout() {
+  stopBreath();
+  await auth.signOut();
+}
+
+/* ═════════════════════════════════════════════════════════════
+   AUTH STATE LISTENER — central routing
+═════════════════════════════════════════════════════════════ */
+if (firebaseReady) {
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      currentUser = user;
+      await loadUserProfile(user.uid);
+      showMainApp(user);
+    } else {
+      currentUser = null;
+      showAuthScreen();
+    }
+  });
+} else {
+  // Demo mode: skip auth, go straight to app with mock user
+  setTimeout(() => showMainApp({ displayName: 'Demo User', email: 'demo@neurocalm.app', uid: 'demo' }), 400);
+}
+
+function showMainApp(user) {
+  document.getElementById('auth-layer').classList.add('hidden');
+  document.getElementById('main-layer').classList.remove('hidden');
+  // Populate name
+  const name = user.displayName || user.email?.split('@')[0] || 'Friend';
+  document.getElementById('home-name').textContent    = name.split(' ')[0];
+  document.getElementById('prof-name').textContent    = name;
+  document.getElementById('prof-email').textContent   = user.email || '';
+  document.getElementById('name-input').value = name;
+  setAuthLoading('si-btn', false);
+  setAuthLoading('su-btn', false);
+  initApp();
+}
+
+function showAuthScreen() {
+  document.getElementById('main-layer').classList.add('hidden');
+  document.getElementById('auth-layer').classList.remove('hidden');
+}
+
+/* ═════════════════════════════════════════════════════════════
+   NAME EDITING
+═════════════════════════════════════════════════════════════ */
+function openNameEditor() {
+  const ed = document.getElementById('name-editor');
+  document.getElementById('name-input').value = document.getElementById('prof-name').textContent;
+  ed.classList.add('show');
+  document.getElementById('name-input').focus();
+}
+
+function closeNameEditor() {
+  document.getElementById('name-editor').classList.remove('show');
+}
+
+async function saveName() {
+  const newName = document.getElementById('name-input').value.trim();
+  if (!newName) { toast('⚠️ Name cannot be empty!'); return; }
+
+  // Update UI immediately
+  document.getElementById('prof-name').textContent     = newName;
+  document.getElementById('home-name').textContent     = newName.split(' ')[0];
+  closeNameEditor();
+  toast('✅ Name updated!');
+
+  // Persist to Firebase
+  if (firebaseReady && currentUser) {
+    try {
+      await currentUser.updateProfile({ displayName: newName });
+      await db.collection('users').doc(currentUser.uid).update({
+        displayName: newName,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(e) { toast('⚠️ Could not save name to cloud.'); }
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════
+   NAVIGATION
+═════════════════════════════════════════════════════════════ */
+let curScreen = 'home';
+
+function navTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.querySelector(`[data-s="${screen}"]`).classList.add('active');
+  curScreen = screen;
+  if (screen === 'stats') renderStatsCharts();
+}
+
+/* ═════════════════════════════════════════════════════════════
+   ANXIETY SIMULATION ENGINE
+═════════════════════════════════════════════════════════════ */
+function tickAnxiety() {
+  const delta = (Math.random() - 0.44) * 10;
+  state.anxietyLevel = Math.max(5, Math.min(95, state.anxietyLevel + delta));
+
+  // 5% chance of spike
+  if (Math.random() < 0.05) {
+    state.anxietyLevel = Math.min(95, state.anxietyLevel + 26);
+    anxietySpike();
+  }
+
+  // Auto-mode response
+  if (state.autoMode && state.anxietyLevel > 65) {
+    triggerVib(true);
+    state.anxietyLevel = Math.max(5, state.anxietyLevel - 14);
+  }
+
+  updateAnxUI();
+}
+
+function anxietySpike() {
+  const flash = document.getElementById('anx-flash');
+  flash.classList.add('show');
+  setTimeout(() => flash.classList.remove('show'), 600);
+  const band = document.getElementById('wrist-band');
+  band.classList.add('vib');
+  setTimeout(() => band.classList.remove('vib'), 1100);
+  if (curScreen === 'home') {
+    toast('⚡ Anxiety spike detected!');
+    setTimeout(() => triggerVib(true), 900);
+  }
+}
+
+function triggerVib(silent) {
+  state.vibrationCount++;
+  state.sessionCount = Math.ceil(state.vibrationCount / 4);
+  state.anxietyLevel = Math.max(5, state.anxietyLevel - 12);
+
+  const band = document.getElementById('wrist-band');
+  band.classList.add('vib');
+  setTimeout(() => band.classList.remove('vib'), 1000);
+
+  if ('vibrate' in navigator) {
+    const dur = state.duration * 100;
+    navigator.vibrate([dur,100,dur,100,dur]);
+  }
+
+  updateAnxUI();
+  updateHomeUI();
+  genMockData();
+  if (!silent) toast('💜 Calming vibration activated!');
+  saveUserProfile();
+}
+
+function updateAnxUI() {
+  const lv  = Math.round(state.anxietyLevel);
+  const fill = document.getElementById('anx-fill');
+  fill.style.width = lv + '%';
+  document.getElementById('anx-val').textContent = lv;
+
+  if (lv > 70) {
+    fill.className = 'meter-fill hi';
+    document.getElementById('dev-status').textContent  = '⚠️ Elevated anxiety…';
+    document.getElementById('dev-sub').textContent     = 'Intensifying vibrations…';
+    document.getElementById('hero-badge').textContent  = '😰 High Anxiety';
+  } else if (lv > 40) {
+    fill.className = 'meter-fill';
+    fill.style.background = 'var(--g-warm)';
+    document.getElementById('dev-status').textContent  = '🔍 Detecting anxiety…';
+    document.getElementById('dev-sub').textContent     = 'Adjusting vibrations…';
+    document.getElementById('hero-badge').textContent  = '😐 Monitoring';
+  } else {
+    fill.className = 'meter-fill';
+    fill.style.background = '';
+    document.getElementById('dev-status').textContent  = '✅ Calm state detected';
+    document.getElementById('dev-sub').textContent     = 'Maintaining gentle rhythm…';
+    document.getElementById('hero-badge').textContent  = '😊 Improving';
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════
+   HOME UI RENDERING
+═════════════════════════════════════════════════════════════ */
+function updateHomeUI() {
+  const el = document.getElementById('vib-count');
+  el.style.animation = 'none'; el.offsetHeight;
+  el.style.animation = 'tickUp .3s ease forwards';
+  el.textContent = state.vibrationCount;
+  document.getElementById('sess-count').textContent = state.sessionCount;
+}
+
+function renderMiniChart() {
+  const c = document.getElementById('mini-chart');
+  const h = [55,70,85,65,45,80,95];
+  c.innerHTML = '';
+  h.forEach((v,i) => {
+    const b = document.createElement('div');
+    b.className = 'mc-bar' + (i===6?' today':'');
+    b.style.height = v + '%';
+    c.appendChild(b);
+  });
+}
+
+function renderWeeklyBar() {
+  const c = document.getElementById('weekly-bar');
+  const days = ['M','T','W','T','F','S','T'];
+  const max = Math.max(...state.weeklyData);
+  c.innerHTML = '';
+  days.forEach((d,i) => {
+    const v = state.weeklyData[i] || 0;
+    const h = max ? (v/max)*100 : 0;
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `<div class="bar c" style="height:${h}%;min-height:4px;"></div>
+      <span class="bar-day">${d}</span>`;
+    c.appendChild(col);
+  });
+}
+
+function renderTrendLine() {
+  const svg = document.getElementById('trend-svg');
+  const data = state.anxHistory;
+  const W=300, H=60;
+  const pts = data.map((v,i)=>[
+    (i/(data.length-1))*W,
+    H - (v/100)*H*0.88
+  ]);
+  const path = pts.map((p,i)=>i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`).join(' ');
+  const area = path + ` L${W},${H} L0,${H} Z`;
+  svg.innerHTML = `
+    <defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e090a8" stop-opacity=".5"/>
+      <stop offset="100%" stop-color="#e090a8" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#tg)"/>
+    <path d="${path}" fill="none" stroke="#e090a8" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${pts[pts.length-1][0]}" cy="${pts[pts.length-1][1]}" r="4" fill="#e090a8"/>
+  `;
+}
+
+/* ═════════════════════════════════════════════════════════════
+   STATS CHARTS
+═════════════════════════════════════════════════════════════ */
+function renderStatsCharts() {
+  // Anxiety line (smooth bezier)
+  const svg = document.getElementById('anx-line-svg');
+  const data = state.anxHistory;
+  const W=300, H=80;
+  const pts = data.map((v,i)=>[
+    (i/(data.length-1))*W,
+    H-(v/100)*H*0.85
+  ]);
+  const smooth = pts.map((p,i)=>{
+    if (i===0) return `M${p[0]},${p[1]}`;
+    const prev = pts[i-1];
+    const cx = (prev[0]+p[0])/2;
+    return `C${cx},${prev[1]} ${cx},${p[1]} ${p[0]},${p[1]}`;
+  }).join(' ');
+  const area = smooth + ` L${W},${H} L0,${H} Z`;
+
+  svg.innerHTML = `
+    <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6ba8e0" stop-opacity=".38"/>
+      <stop offset="100%" stop-color="#6ba8e0" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${[25,50,75].map(y=>`<line x1="0" y1="${H-(y/100)*H*.85}" x2="${W}" y2="${H-(y/100)*H*.85}" stroke="rgba(100,130,200,.13)" stroke-width="1"/>`).join('')}
+    <path d="${area}" fill="url(#ag)"/>
+    <path d="${smooth}" fill="none" stroke="#6ba8e0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="white" stroke="#6ba8e0" stroke-width="2"/>`).join('')}
+  `;
+
+  // Bars
+  const bc = document.getElementById('stats-bars');
+  const max = Math.max(...state.weeklyData);
+  const colors = ['#a882d8','#6ba8e0','#64c8b8','#a882d8','#f0b890','#e090a8','#6ba8e0'];
+  bc.innerHTML = '';
+  state.weeklyData.forEach((v,i) => {
+    const h = max ? (v/max)*90 : 0;
+    const col = document.createElement('div');
+    col.className = 'sb-col';
+    col.innerHTML = `<span class="sb-val">${v}</span>
+      <div class="sb" style="height:${h}px;background:${colors[i]};min-height:4px;opacity:${i===6?1:.75};"></div>`;
+    bc.appendChild(col);
+  });
+
+  document.getElementById('weekly-total').textContent =
+    state.weeklyData.reduce((a,b)=>a+b,0);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   BREATHING ENGINE
+═════════════════════════════════════════════════════════════ */
+let brPhase = 'idle', brTimer = null, brInterval = null, brCount = 0;
+
+function toggleBreath() {
+  brPhase === 'idle' ? startBreath() : stopBreath();
+}
+
+function startBreath() {
+  brPhase = 'inhale'; brCount = 4;
+  toast('🌬️ Breathing exercise started');
+  runBreathPhase();
+}
+
+function stopBreath() {
+  clearTimeout(brTimer); clearInterval(brInterval);
+  brPhase = 'idle';
+  document.getElementById('br1').className = 'br br1';
+  document.getElementById('br2').className = 'br br2';
+  document.getElementById('br-action').textContent = 'TAP';
+  document.getElementById('br-cnt').textContent = '▶';
+  state.anxietyLevel = Math.max(5, state.anxietyLevel - 20);
+  triggerVib(true);
+  updateAnxUI();
+  toast('✅ Great session! Anxiety reduced.');
+}
+
+function runBreathPhase() {
+  const r1 = document.getElementById('br1');
+  const r2 = document.getElementById('br2');
+  r1.className = 'br br1'; r2.className = 'br br2';
+  r1.offsetHeight; // reflow
+
+  let dur, label, next;
+  if (brPhase==='inhale'){dur=4000;label='INHALE';next='hold';
+    r1.classList.add('inhaling');r2.classList.add('inhaling');}
+  else if (brPhase==='hold'){dur=4000;label='HOLD';next='exhale';
+    r1.classList.add('holding');}
+  else{dur=4000;label='EXHALE';next='inhale';
+    r1.classList.add('exhaling');r2.classList.add('exhaling');
+    state.anxietyLevel = Math.max(5, state.anxietyLevel - 3);
+    updateAnxUI();}
+
+  document.getElementById('br-action').textContent = label;
+  brCount = dur/1000;
+  document.getElementById('br-cnt').textContent = brCount;
+
+  clearInterval(brInterval);
+  brInterval = setInterval(()=>{
+    brCount--;
+    document.getElementById('br-cnt').textContent = Math.max(0,brCount);
+    if(brCount<=0) clearInterval(brInterval);
+  },1000);
+
+  brTimer = setTimeout(()=>{brPhase=next;runBreathPhase();},dur);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   INSTANT CALM
+═════════════════════════════════════════════════════════════ */
+function instantCalm() {
+  const btn = document.getElementById('instant-btn');
+  btn.classList.add('btn-vib');
+  setTimeout(()=>btn.classList.remove('btn-vib'),700);
+  triggerVib(false);
+  state.anxietyLevel = Math.max(5, state.anxietyLevel - 18);
+  updateAnxUI();
+  const r1 = document.getElementById('br1');
+  r1.style.boxShadow='0 0 80px rgba(107,168,224,.9),0 0 150px rgba(168,130,216,.5)';
+  setTimeout(()=>r1.style.boxShadow='',700);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   SOUND
+═════════════════════════════════════════════════════════════ */
+function pickSound(s, el) {
+  document.querySelectorAll('.snd-btn').forEach(b=>b.classList.remove('active'));
+  if (s !== 'off') { el.classList.add('active'); state.activeSound=s;
+    toast('🎵 '+s.charAt(0).toUpperCase()+s.slice(1)+' sounds on'); }
+  else { state.activeSound=null; toast('🔇 Sounds off'); }
+}
+
+/* ═════════════════════════════════════════════════════════════
+   PROFILE ACTIONS
+═════════════════════════════════════════════════════════════ */
+function onSupportToggle(cb) {
+  state.supportMode = cb.checked;
+  document.getElementById('support-info').classList.toggle('show',cb.checked);
+  if(cb.checked) toast('🆘 Support mode enabled. Stay safe!');
+  saveUserProfile();
+}
+
+/* ═════════════════════════════════════════════════════════════
+   TOAST
+═════════════════════════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  clearTimeout(toastTimer);
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast').classList.add('show');
+  toastTimer = setTimeout(()=>document.getElementById('toast').classList.remove('show'),3000);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   CLOCK
+═════════════════════════════════════════════════════════════ */
+function updateClock() {
+  const n = new Date();
+  document.getElementById('status-clock').textContent =
+    n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0');
+}
+
+/* ═════════════════════════════════════════════════════════════
+   APP INIT (called after auth succeeds)
+═════════════════════════════════════════════════════════════ */
+function initApp() {
+  genMockData();
+  updateHomeUI();
+  updateAnxUI();
+  renderMiniChart();
+  renderWeeklyBar();
+  renderTrendLine();
+  applySettingsToUI();
+  updateClock();
+
+  // Enable keyboard submit on auth forms
+  ['si-email','si-pass'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignIn();});
+  });
+  ['su-name','su-email','su-pass'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignUp();});
+  });
+  document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')saveName();});
+
+  // Auto toggles
+  document.getElementById('auto-tog').addEventListener('change', function() {
+    state.autoMode = this.checked;
+    toast(this.checked?'🤖 Auto mode on':'🤖 Auto mode off');
+    saveUserProfile();
+  });
+
+  // Simulation loops
+  setInterval(tickAnxiety, 3000);
+  setInterval(()=>{
+    if(curScreen==='home'){genMockData();renderWeeklyBar();renderTrendLine();}
+  },10000);
+  setInterval(updateClock, 1000);
+  // Periodic Firestore sync
+  setInterval(saveUserProfile, 60000);
+
+  setTimeout(()=>toast('👋 Welcome to NeuroCalm!'),700);
+}
+
+/* ═════════════════════════════════════════════════════════════
+   PWA SERVICE WORKER
+═════════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  const sw = `
+    self.addEventListener('install',()=>self.skipWaiting());
+    self.addEventListener('activate',()=>clients.claim());
+    self.addEventListener('fetch',e=>e.respondWith(
+      caches.match(e.request).then(r=>r||fetch(e.request))
+    ));
+  `;
+  const blob = new Blob([sw],{type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+}
+</script>
+</body>
+</html>
